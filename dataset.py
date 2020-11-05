@@ -117,11 +117,11 @@ class EDVCdataset(Dataset):
         logger.info('load annotation file, %d videos loaded', len(self.keys))
 
         self.feature_folder = feature_folder
-        self.feature_sample_rate = opt.feature_sample_rate
+        self.feature_sample_rate = opt.feature_sample_rate  # 8
         self.opt = opt
-        self.proposal_type = proposal_type
+        self.proposal_type = proposal_type  # 训练时为learnt  验证时为gt
         self.is_training = is_training
-        self.train_proposal_sample_num = opt.train_proposal_sample_num
+        self.train_proposal_sample_num = opt.train_proposal_sample_num   # 
         self.feature_dim = self.opt.feature_dim
         self.proposal_file = self.opt.train_proposal_file if self.is_training else self.opt.eval_proposal_file
         self.proposal_data = json.load(open(self.proposal_file))['results']
@@ -223,7 +223,7 @@ def iou(interval_1, interval_2):
     iou = intersection / (union + 1e-8)
     return iou
 
-
+## 按事件发生的时间顺序排序 ##
 def sort_events(proposal_data):
     for vid in proposal_data.keys():
         v_data = proposal_data[vid]

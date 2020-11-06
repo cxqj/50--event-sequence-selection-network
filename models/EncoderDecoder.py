@@ -44,13 +44,13 @@ class EncoderDecoder(nn.Module):
             dt['video_tensor'] = self.frame_reduce_dim_layer(dt['video_tensor'].reshape(vid_num * vid_len, -1)).reshape(
                 vid_num, vid_len, -1)
 
-        event, pos_feats, clip, clip_mask = self.get_features(dt, dt['lnt_featstamps'])
+        event, pos_feats, clip, clip_mask = self.get_features(dt, dt['lnt_featstamps'])  # (102,1024), (1,102,100)
         FIRST_DIM = 0
-        event = event.unsqueeze(FIRST_DIM) # only avalilable for video number = 1
+        event = event.unsqueeze(FIRST_DIM) # only avalilable for video number = 1  # (102,1024)-->(1,102,1024)
         if mode == 'train':
 
-            gt_seq = event.new_zeros((vid_num, 2 + len(dt['gt_featstamps'])), dtype=torch.int)
-            _, gt_seq_mid = dt['lnt_iou_mat'][:, :-1, 2:].max(dim=2)
+            gt_seq = event.new_zeros((vid_num, 2 + len(dt['gt_featstamps'])), dtype=torch.int)  # (1, 2 + gt_num)
+            _, gt_seq_mid = dt['lnt_iou_mat'][:, :-1, 2:].max(dim=2)  # (1, gt_num - 1)
             gt_seq[:, 1:-1] = gt_seq_mid + 2
             gt_seq[:, 0] = 1
             prob = self.decoder(event, pos_feats, gt_seq)

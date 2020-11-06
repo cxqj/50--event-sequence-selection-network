@@ -35,11 +35,12 @@ class BasicEncoder(nn.Module):
             clip_mask[i, :len(selected)] = 1
         return clip_feats, clip_mask
 
+    ### 其实就是将timestamps对应的区间置为1，相当于时序mask #####
     def get_pos_embed(self, timestamps, durations, L=100):
         locs = []
         for vid, duration in enumerate(durations):
-            p_num = len(timestamps[vid])
-            loc = torch.zeros((p_num, L))
+            p_num = len(timestamps[vid])  # 102
+            loc = torch.zeros((p_num, L)) # (102,100)
             for i, (ts, te) in enumerate(timestamps[vid]):
                 rescale_ts = max(0, int(ts / duration * (L - 1)))
                 rescale_te = min(L - 1, int(te / duration * (L - 1)))
@@ -54,25 +55,32 @@ class RNNEncoder(BasicEncoder):
         self.opt = opt
         self.hidden_dim = self.opt.hidden_dim
         self.frame_encoder = nn.GRU(self.opt.feature_dim, self.hidden_dim, num_layers=2, batch_first=True,
-                                    dropout=0.5, bidirectional=False, )
+                                    dropout=0.5, bidirectional=False, )  # 512-->512
         self.frame_encoder_drop = nn.Dropout(p=0.5)
         opt.event_context_dim = 2 * self.hidden_dim
         opt.clip_context_dim = None
-
+    """
+    feats = (B,T,512)
+    vid_idx = (102)  指示提议对应于哪个batch
+    featstamps = (102,2)  特征时间戳
+    event_seq_idx=None, 
+    timestamps= (102,2)  原始时间戳
+    vid_time_len ： 视频时长
+    """
     def forward(self, feats, vid_idx, featstamps, event_seq_idx=None, timestamps=None, vid_time_len=None):
-        recur_feat, _ = self.frame_encoder(feats)
+        recur_feat, _ = self.frame_encoder(feats)  # (B,T,512)
         recur_feat = self.frame_encoder_drop(recur_feat)  # [video_num, video_len, video_dim]
 
         event_feat_list = []
         for i, soi in enumerate(featstamps):
             v_idx = vid_idx[i]
-            start_feat = recur_feat[v_idx, soi[0]]
-            end_feat = recur_feat[v_idx, soi[1]]
-            event_feat_list.append(torch.cat((start_feat, end_feat), 0))
-        event_feat = torch.stack(event_feat_list, 0)
-        pos_feats = self.get_pos_embed(timestamps, vid_time_len, self.position_encoding_size)
+            start_feat = recur_feat[v_idx, soi[0]]  # (512,)
+            end_feat = recur_feat[v_idx, soi[1]]  # (512,)
+            event_feat_list.append(torch.cat((start_feat, end_feat), 0)) # (1024,)
+        event_feat = torch.stack(event_feat_list, 0)  # (102,1024)
+        pos_feats = self.get_pos_embed(timestamps, vid_time_len, self.position_encoding_size)  # (102,100)
         pos_feats = feats.new_tensor(pos_feats)
-        return event_feat, pos_feats, _, _
+        return event_feat, pos_feats, _, _  # (102,1024), (1, 102,100)
 
 
 class BRNNEncoder(BasicEncoder):

@@ -54,11 +54,11 @@ def collate_fn(batch):
 
         proposal_length = len(timestamps_list[idx])
         timestamps = list(chain(*timestamps_list))
-        proposal_gather_idx[total_proposal_idx:total_proposal_idx + proposal_length] = idx
+        proposal_gather_idx[total_proposal_idx:total_proposal_idx + proposal_length] = idx  # 指示提议属于哪一个batch
         gt_idx_tensor[total_proposal_idx: total_proposal_idx + proposal_length, 0] = torch.from_numpy(
-            total_caption_idx + gt_idx[idx])
-        gt_idx_tensor[total_proposal_idx: total_proposal_idx + proposal_length, 1] = idx
-        gt_idx_tensor[total_proposal_idx: total_proposal_idx + proposal_length, 2] = torch.from_numpy(gt_idx[idx])
+            total_caption_idx + gt_idx[idx])   # 指示lnt_prop提议对应的最大gt_prop索引
+        gt_idx_tensor[total_proposal_idx: total_proposal_idx + proposal_length, 1] = idx    # 指示当前是哪一个batch
+        gt_idx_tensor[total_proposal_idx: total_proposal_idx + proposal_length, 2] = torch.from_numpy(gt_idx[idx]) # 指示lnt_prop提议对应的最大gt_prop索引
 
         gt_proposal_length = len(gt_timestamps_list[idx])
         gt_timestamps = list(chain(*gt_timestamps_list))
@@ -151,15 +151,15 @@ class PropSeqDataset(EDVCdataset):
 
     def sample_proposal(self, iou_mat, sample_num, sample_len, iou_thres=0):
         gt_num, lnt_num = iou_mat.shape
-        lnt_max_ids = np.argmax(iou_mat, 0)
+        lnt_max_ids = np.argmax(iou_mat, 0)  # (100+2,) 记录的是每一个lnt_prop和哪一个gt_prop的IOU值最大
         gt_max_ids = np.argmax(iou_mat, 1)
 
         event_seq_idx = [random.sample(range(lnt_num), sample_len) for j in range(sample_num)]
-        event_seq_idx = np.sort(event_seq_idx, axis=1)
+        event_seq_idx = np.sort(event_seq_idx, axis=1)  # (1,100) 记录选取的是哪一个lnt_prop
         for i in range(gt_num):
             if iou_mat[i, gt_max_ids[i]] > 0:
                 lnt_max_ids[gt_max_ids[i]] = i  # assure that each GT proposal matches at last 1 lnt proposal
-        seq_gt_idx = lnt_max_ids[event_seq_idx]
+        seq_gt_idx = lnt_max_ids[event_seq_idx]  # (1,100) 记录的是每一个lnt_prop和哪一个gt_prop的IOU最大
 
         return event_seq_idx.astype('int'), seq_gt_idx.astype('int'), lnt_max_ids
 
